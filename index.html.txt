@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Logic Logistics - Free AI Dispatcher</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f4; }
+    h1 { text-align: center; }
+    form { max-width: 400px; margin: auto; }
+    input, button { display: block; width: 100%; margin: 10px 0; padding: 10px; font-size: 18px; }
+    #dashboard { display: none; max-width: 600px; margin: auto; }
+    .load { border: 1px solid #ccc; padding: 10px; margin: 10px 0; background: white; }
+    #donate { text-align: center; margin-top: 20px; }
+    button { background: #007bff; color: white; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Welcome to All Logic Logistics</h1>
+  <p>100% Free AI-Powered Freight Dispatching for Truck Drivers</p>
+
+  <form id="registerForm">
+    <input type="text" id="name" placeholder="Your Name" required>
+    <input type="email" id="email" placeholder="Your Email" required>
+    <button type="submit">Register & Start</button>
+  </form>
+
+  <div id="dashboard">
+    <h2>Your Dashboard</h2>
+    <div id="loads"></div>
+    <button onclick="speakStatus()">Voice Status</button>
+  </div>
+
+  <div id="donate">
+    <p>Support us with a donation!</p>
+    <a href="https://www.paypal.com/donate?business=YOUR_PAYPAL_EMAIL" target="_blank"><button>Donate via PayPal</button></a>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let userId;
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const res = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email })
+      });
+      const data = await res.json();
+      userId = data.id;
+      document.getElementById('registerForm').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      loadDashboard();
+    });
+
+    async function loadDashboard() {
+      const res = await fetch(`/dashboard/${userId}`);
+      const loads = await res.json();
+      const loadsDiv = document.getElementById('loads');
+      loadsDiv.innerHTML = '';
+      loads.forEach(load => {
+        const div = document.createElement('div');
+        div.className = 'load';
+        div.innerHTML = `
+          <p>Load ID: ${load.id}</p>
+          <p>From: \( {load.origin} to \){load.destination}</p>
+          <p>Cargo: ${load.cargo}</p>
+          <p>Status: ${load.status}</p>
+          <a href="/paperwork/${load.id}" download>Download BOL</a>
+        `;
+        loadsDiv.appendChild(div);
+      });
+    }
+
+    socket.on('update', (data) => {
+      if (data.driverId === userId) loadDashboard();
+    });
+
+    function speakStatus() {
+      const msg = new SpeechSynthesisUtterance('Your loads are being updated.');
+      window.speechSynthesis.speak(msg);
+    }
+
+    // Voice input (browser support)
+    if ('webkitSpeechRecognition' in window) {
+      const recognition = new webkitSpeechRecognition();
+      recognition.onresult = (e) => {
+        document.getElementById('name').value = e.results[0][0].transcript;
+      };
+      // Add button to trigger if needed
+    }
+  </script>
+</body>
+</html>
